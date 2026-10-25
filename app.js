@@ -1,5 +1,5 @@
-// وضعیت (State) برنامه در کلاینت
-let appData = { settings: {}, products: [] };
+// وضعیت (State) برنامه با بارگذاری فوری داده‌های پیش‌فرض
+let appData = JSON.parse(JSON.stringify(FALLBACK_DATA));
 let isAdmin = false;
 let currentAdminPassword = "";
 let activeFilterCategory = 'all';
@@ -7,13 +7,29 @@ let activeGoalFilter = null;
 let searchKeyword = '';
 let basket = [];
 
+// ساخت تصویر گرافیکی داخلی (بدون نیاز به اینترنت یا سایت‌های خارجی فیلترشده)
+function getLocalPlaceholderSvg(title) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+    <rect width="400" height="300" fill="#f3f4f6"/>
+    <circle cx="200" cy="115" r="36" fill="#d1fae5"/>
+    <text x="200" y="125" font-family="Tahoma, sans-serif" font-size="24" font-weight="bold" fill="#065f46" text-anchor="middle">به‌تین</text>
+    <text x="200" y="195" font-family="Tahoma, sans-serif" font-size="17" font-weight="bold" fill="#15803d" text-anchor="middle">${title}</text>
+    <text x="200" y="225" font-family="Tahoma, sans-serif" font-size="12" fill="#78716c" text-anchor="middle">محصول ممتاز باغ‌های استهبان</text>
+  </svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-  loadDatabase();
+  // ۱. ابتدا بلافاصله رابط کاربری را با داده‌های آماده نمایش می‌دهیم تا کاربر منتظر نماند
+  renderUI();
   renderFigComparison(figDetails[0].id);
+  // ۲. سپس در پس‌زمینه آخرین تغییرات را از دیتابیس Supabase می‌گیریم
+  loadDatabase();
 });
 
-// ۱. دریافت داده‌ها از دیتابیس Supabase
+// دریافت داده‌ها از دیتابیس Supabase در پس‌زمینه
 async function loadDatabase() {
+  if (!supabaseClient) return;
   try {
     const [settingsRes, productsRes] = await Promise.all([
       supabaseClient.from('settings').select('*'),
@@ -23,35 +39,40 @@ async function loadDatabase() {
     if (settingsRes.error) throw settingsRes.error;
     if (productsRes.error) throw productsRes.error;
 
-    const settings = {};
-    (settingsRes.data || []).forEach(row => {
-      settings[row.key] = row.value || '';
-    });
+    if (productsRes.data && productsRes.data.length > 0) {
+      const settings = {};
+      (settingsRes.data || []).forEach(row => {
+        // نادیده گرفتن لینک‌های قدیمی Unsplash که در ایران فیلتر هستند
+        if (row.key === 'logo_url' && row.value && row.value.includes('unsplash.com')) {
+          settings[row.key] = '';
+        } else {
+          settings[row.key] = row.value || '';
+        }
+      });
 
-    const products = (productsRes.data || []).map(r => ({
-      id: String(r.id),
-      category: r.category_id,
-      categoryLabel: r.category_label,
-      title: r.title,
-      badge: r.badge,
-      badgeColor: r.badge_color,
-      goals: r.goals ? String(r.goals).split(',').map(s => s.trim()).filter(Boolean) : ['daily'],
-      shortDesc: r.short_desc || '',
-      flavors: r.flavors ? String(r.flavors).split(',').map(s => s.trim()).filter(Boolean) : [],
-      highlights: r.highlights ? String(r.highlights).split(',').map(s => s.trim()).filter(Boolean) : [],
-      visualType: r.visual_type || 'custom',
-      imageUrl: r.image_url || ''
-    }));
+      const products = productsRes.data.map(r => ({
+        id: String(r.id),
+        category: r.category_id,
+        categoryLabel: r.category_label,
+        title: r.title,
+        badge: r.badge,
+        badgeColor: r.badge_color,
+        goals: r.goals ? String(r.goals).split(',').map(s => s.trim()).filter(Boolean) : ['daily'],
+        shortDesc: r.short_desc || '',
+        flavors: r.flavors ? String(r.flavors).split(',').map(s => s.trim()).filter(Boolean) : [],
+        highlights: r.highlights ? String(r.highlights).split(',').map(s => s.trim()).filter(Boolean) : [],
+        visualType: r.visual_type || 'custom',
+        imageUrl: r.image_url || ''
+      }));
 
-    appData = { settings, products };
-    renderUI();
+      appData = { settings, products };
+      renderUI();
+    }
   } catch (err) {
-    console.error(err);
-    alert('خطا در بارگذاری اولیه داده‌ها از دیتابیس: ' + err.message);
+    console.warn('ارتباط با سرور برقرار نشد؛ نمایش از روی حافظه داخلی ادامه دارد:', err.message);
   }
 }
 
-// ۲. رندر کردن رابط کاربری
 function renderUI() {
   const s = appData.settings;
   if (s.brand_title) document.getElementById('text-brand-title').innerText = s.brand_title;
@@ -63,11 +84,15 @@ function renderUI() {
   if (s.eitaa_url) document.getElementById('btn-eitaa').href = s.eitaa_url;
   if (s.bale_url) document.getElementById('btn-bale').href = s.bale_url;
 
-  if (s.logo_url) {
-    const logoImg = document.getElementById('nav-logo-img');
+  const logoImg = document.getElementById('nav-logo-img');
+  const logoIcon = document.getElementById('nav-logo-icon');
+  if (s.logo_url && s.logo_url.trim() !== '') {
     logoImg.src = s.logo_url;
     logoImg.classList.remove('hidden');
-    document.getElementById('nav-logo-icon').classList.add('hidden');
+    logoIcon.classList.add('hidden');
+  } else {
+    logoImg.classList.add('hidden');
+    logoIcon.classList.remove('hidden');
   }
 
   document.getElementById('heroCountBrick').innerText = appData.products.length + ' محصول کاتالوگ';
@@ -123,13 +148,14 @@ function renderProductsGrid() {
   grid.innerHTML = filtered.map((prod) => {
     const realIdx = appData.products.findIndex(item => item.id === prod.id);
     const editableAttr = isAdmin ? 'contenteditable="true" data-editable="true"' : '';
-    const imgSrc = prod.imageUrl && prod.imageUrl.trim() !== '' ? prod.imageUrl : 'https://placehold.co/400x300/f3f4f6/15803d?text=' + encodeURIComponent(prod.title);
+    const fallbackSvg = getLocalPlaceholderSvg(prod.title);
+    const imgSrc = prod.imageUrl && prod.imageUrl.trim() !== '' ? prod.imageUrl : fallbackSvg;
 
     return `
       <div class="material-card bg-white rounded-3xl border border-stone-200 overflow-hidden flex flex-col justify-between">
         <div>
           <div class="relative h-48 bg-stone-100 overflow-hidden">
-            <img src="${imgSrc}" alt="${prod.title}" class="w-full h-full object-cover">
+            <img src="${imgSrc}" onerror="this.onerror=null; this.src='${fallbackSvg}';" alt="${prod.title}" class="w-full h-full object-cover">
             <span class="absolute top-3 right-3 text-xs font-black px-3 py-1 rounded-full border shadow-sm ${prod.badgeColor || 'bg-amber-100 text-amber-900 border-amber-300'}">
               ${prod.badge || 'ویژه'}
             </span>
@@ -163,7 +189,6 @@ function renderProductsGrid() {
   }).join('');
 }
 
-// ۳. فیلترها و جستجو
 function setCategoryFilter(catId) {
   activeFilterCategory = catId;
   renderCategoryTabs();
@@ -192,7 +217,6 @@ function handleSearch(val) {
   renderProductsGrid();
 }
 
-// ۴. مقایسه‌گر تخصصی انجیر
 function renderFigComparison(selectedId) {
   const nav = document.getElementById('figCompareNav');
   nav.innerHTML = figDetails.map(f => `
@@ -234,7 +258,6 @@ function renderFigComparison(selectedId) {
   `;
 }
 
-// ۵. پنل مدیریت و احراز هویت امن در سمت سرور (Supabase RPC)
 function handleAdminLoginClick() {
   if (isAdmin) {
     logoutAdmin();
@@ -274,7 +297,7 @@ async function submitAdminPassword() {
       alert('رمز عبور وارد شده نادرست است!');
     }
   } catch (err) {
-    alert('خطا در ارتباط با سرور احراز هویت: ' + err.message);
+    alert('خطا در ارتباط با سرور دیتابیس (برای ورود مدیریت اتصال اینترنت خود را بررسی کنید): ' + err.message);
   }
 }
 
@@ -366,7 +389,6 @@ async function saveAllChangesToSheet(event) {
   }
 }
 
-// ۶. سبد استعلام و سفارش
 function addToBasket(title) {
   basket.push(title);
   document.getElementById('basketCountBadge').innerText = basket.length;
@@ -399,7 +421,6 @@ function copyBasketToClipboard() {
   alert('متن استعلام کپی شد. می‌توانید در ایتا یا بله ارسال کنید.');
 }
 
-// ۷. موتور ساخت خروجی PDF چاپی A4
 function openPdfModal() {
   buildA4PagesPreview();
   document.getElementById('pdfExportModal').classList.remove('hidden');
