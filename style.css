@@ -1,0 +1,66 @@
+* {
+  font-family: 'Vazirmatn', sans-serif;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #fcf9f5;
+  background-image: 
+    radial-gradient(at 10% 10%, rgba(25, 86, 51, 0.05) 0px, transparent 50%),
+    radial-gradient(at 90% 25%, rgba(224, 159, 36, 0.06) 0px, transparent 50%),
+    radial-gradient(at 50% 80%, rgba(155, 76, 55, 0.05) 0px, transparent 50%);
+  overflow-x: hidden;
+}
+
+/* افکت متریال دیزاین روی کارت‌های محصولات */
+.material-card {
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+}
+.material-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 25px -5px rgba(25, 86, 51, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+}
+
+.glass-nav {
+  background: rgba(252, 249, 245, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* حالت ویرایش درون صفحه توسط مدیر */
+body.admin-mode [data-editable="true"] {
+  outline: 2px dashed #16a34a;
+  outline-offset: 3px;
+  border-radius: 6px;
+  cursor: text;
+  transition: all 0.2s ease;
+}
+body.admin-mode [data-editable="true"]:hover,
+body.admin-mode [data-editable="true"]:focus {
+  background-color: rgba(22, 163, 74, 0.1);
+  outline: 2px solid #15803d;
+}
+
+/* استایل اختصاصی جهت ساخت مستقیم صفحه A4 در کاتالوگ PDF */
+.pdf-a4-page {
+  width: 794px;
+  height: 1123px;
+  background: #ffffff;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+  direction: rtl;
+  overflow: hidden;
+}
+
+/* انیمیشن پالس برای اعلان‌های ویژه */
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.pulse-animation {
+  animation: badgePulse 2s infinite ease-in-out;
+}
